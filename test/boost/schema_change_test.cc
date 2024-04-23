@@ -265,6 +265,24 @@ SEASTAR_TEST_CASE(test_column_is_dropped) {
     });
 }
 
+SEASTAR_TEST_CASE(test_recreate_blocked_when_add_after_drop) {
+    auto db_cfg_ptr = make_shared<db::config>();
+    auto& db_cfg = *db_cfg_ptr;
+    db_cfg.block_recreating_dropped_columns({true}, db::config::config_source::CommandLine);
+    return do_with_cql_env_thread([] (cql_test_env& e) {
+        e.execute_cql("create keyspace tests with replication = { 'class' : 'NetworkTopologyStrategy', 'replication_factor' : 1 };").get();
+        e.execute_cql("create table tests.table1 (pk int primary key, c1 int, c2 int);").get();
+        e.execute_cql("alter table tests.table1 drop c2;").get();
+
+        BOOST_REQUIRE_EXCEPTION(e.execute_cql("alter table tests.table1 add c2 int;").get(), exceptions::invalid_request_exception,
+            exception_predicate::message_equals("Cannot re-add previously dropped column c2"));
+
+        schema_ptr s = e.db().local().find_schema("tests", "table1");
+        BOOST_REQUIRE(s->columns_by_name().contains(to_bytes("c1")));
+        BOOST_REQUIRE(!s->columns_by_name().contains(to_bytes("c2")));
+    }, db_cfg_ptr);
+}
+
 SEASTAR_TEST_CASE(test_static_column_is_dropped) {
     return do_with_cql_env_thread([](cql_test_env& e) {
         e.execute_cql("create keyspace tests with replication = { 'class' : 'NetworkTopologyStrategy', 'replication_factor' : 1 };").get();

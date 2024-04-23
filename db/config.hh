@@ -482,6 +482,7 @@ public:
 
     named_value<std::vector<enum_option<replication_strategy_restriction_t>>> replication_strategy_warn_list;
     named_value<std::vector<enum_option<replication_strategy_restriction_t>>> replication_strategy_fail_list;
+    named_value<bool> block_recreating_dropped_columns;
 
     named_value<uint32_t> service_levels_interval;
 
